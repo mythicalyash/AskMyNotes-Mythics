@@ -11,6 +11,7 @@ import google.generativeai as genai
 from groq import Groq
 from dotenv import load_dotenv
 from typing import List, Annotated
+from collections import deque
 
 
 # =============================
@@ -444,6 +445,61 @@ async def upload_file(
 
 
 # =============================
+# FILE MANAGEMENT
+# =============================
+@app.get("/files/{subject}")
+def get_files(subject: str):
+    if subject not in ["subject1", "subject2", "subject3"]:
+        return {"error": "Invalid subject"}
+        
+    subject_path = os.path.join(UPLOAD_DIR, subject)
+    if not os.path.exists(subject_path):
+        return {"files": []}
+        
+    files = []
+    for filename in os.listdir(subject_path):
+        file_path = os.path.join(subject_path, filename)
+        if os.path.isfile(file_path):
+            size_kb = os.path.getsize(file_path) / 1024
+            file_type = filename.split(".")[-1].upper() if "." in filename else "FILE"
+            files.append({
+                "name": filename,
+                "size": f"{size_kb:.0f} KB",
+                "type": file_type
+            })
+            
+    return {"files": files}
+
+@app.delete("/files/{subject}/{filename}")
+def delete_file(subject: str, filename: str):
+    if subject not in ["subject1", "subject2", "subject3"]:
+        return {"error": "Invalid subject"}
+        
+    subject_path = os.path.join(UPLOAD_DIR, subject)
+    file_path = os.path.join(subject_path, filename)
+    
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        
+        # update index to remove chunks from this file
+        chunks = load_subject_index(subject)
+        if chunks:
+            filtered_chunks = [c for c in chunks if c.get("source") != filename]
+            if len(filtered_chunks) != len(chunks):
+                # Save the new filtered index back
+                index_path = os.path.join(INDEX_DIR, f"{subject}_index.json")
+                tmp_path = index_path + ".tmp"
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    json.dump(filtered_chunks, f, indent=2, ensure_ascii=False)
+                os.replace(tmp_path, index_path)
+                print(f"🗑️ Removed chunks for {filename} from {subject} index.")
+        
+        return {"message": f"Successfully deleted {filename}"}
+    
+    return {"error": "File not found"}
+
+
+# =============================
 # ASK ROUTE (SEMANTIC RETRIEVAL)
 # =============================
 @app.post("/ask")
@@ -626,34 +682,52 @@ async def ask_v2(
 
 
 # =============================
+# GLOBAL MEMORY
+# =============================
+conversation_memory = deque(maxlen=20)
+
+def add_to_memory(role, content):
+    conversation_memory.append({
+        "role": role,
+        "content": content
+    })
+
+def get_memory_context():
+    context = ""
+    for msg in conversation_memory:
+        context += f"{msg['role'].upper()}: {msg['content']}\n"
+    return context
+
+
+# =============================
 # AI TEACHER ROUTE
 # =============================
-def generate_teacher_answer(question, context, history, fallback_text=""):
+def generate_teacher_answer(question, context, fallback_text=""):
     """Use Groq (Llama 3.3 70B) to generate a conversational teacher answer with a follow up question."""
 
     print("🤖 Groq LLM generating teacher answer")
+    
+    memory_context = get_memory_context()
 
-    system_prompt = """You are AskMyNotes, an encouraging and interactive AI Teacher.
+    system_prompt = f"""You are a grounded study assistant.
+Use previous conversation context if needed.
 
-    RULES:
-    1. Answer the student's question concisely using the provided CONTEXT. If the user is asking a follow-up (like "simplify it", "give an example", "compare"), use the CONVERSATION HISTORY to understand what they are referring to.
-    2. Do NOT invent information that is not in the context or history.
-    3. If the answer is not in the context or history, say "I couldn't find that in your notes, but..." and give a brief general answer if appropriate.
-    4. Speak naturally and conversationally, suitable for text-to-speech.
-    5. MOST IMPORTANT: ALWAYS end your response with ONE relevant, thought-provoking follow-up question to test the student's understanding or guide them deeper into the topic. Do not just ask "does that make sense?" Ask a specific, content-related question.
+RECENT CONVERSATION:
+{memory_context}
 
-    HISTORY contains previous messages in the conversation to help you maintain context.
-    """
+RULES:
+1. Use grounding context only for factual answers.
+2. Use conversation history only for follow-ups (simplify, compare, example, etc.).
+3. Do NOT invent information that is not in the context or history. Never hallucinate.
+4. If the answer is not in the context or history, return exactly: "I couldn't find that in your notes, but..." and give a brief general answer if appropriate.
+5. Speak naturally and conversationally, suitable for text-to-speech.
+6. MOST IMPORTANT: ALWAYS end your response with ONE relevant, thought-provoking follow-up question to test the student's understanding or guide them deeper into the topic. Do not just ask "does that make sense?" Ask a specific, content-related question.
+"""
 
-    history_text = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in history[-4:]]) if history else "No previous history."
-
-    user_prompt = f"""CONTEXT:
+    user_prompt = f"""GROUNDING CONTEXT:
 {context}
 
-CONVERSATION HISTORY:
-{history_text}
-
-STUDENT QUESTION:
+CURRENT QUESTION:
 {question}
 """
 
@@ -681,29 +755,23 @@ STUDENT QUESTION:
 async def teacher_ask(
     subject: Annotated[str, Form(...)],
     question: Annotated[str, Form(...)],
-    history: Annotated[str, Form(...)], # JSON string of history array
 ):
-
-    import json
-    try:
-        history_list = json.loads(history)
-    except:
-        history_list = []
-
+    
     if subject not in ["subject1", "subject2", "subject3"]:
         return {"reply": "Invalid subject provided."}
 
     chunks = load_subject_index(subject)
 
     if not chunks:
-        return {"reply": "It looks like you haven't uploaded any notes for this subject yet. Please upload some files first so I can teach you from them!"}
+        return {"reply": f"Not found in your notes for {subject}. Please upload some files first!"}
 
     # If the user asks a short follow-up question like "simplify it" or "give an example",
     # the vector search alone will fail to find context. We prepend the recent history 
     # topic to the semantic search query.
     search_query = question
-    if len(question.split()) < 8 and history_list:
-        last_user_msg = next((msg['content'] for msg in reversed(history_list) if msg['role'] == 'user'), "")
+    if len(question.split()) < 8 and len(conversation_memory) > 0:
+        # Find the last user message from deque memory
+        last_user_msg = next((msg['content'] for msg in reversed(list(conversation_memory)) if msg['role'] == 'user'), "")
         if last_user_msg:
             search_query = f"{last_user_msg} {question}"
 
@@ -716,9 +784,96 @@ async def teacher_ask(
         context = build_context_from_chunks(strong_chunks)
         fallback = "Here's what I found: " + strong_chunks[0]["text"][:200] + "... What part of that is most interesting to you?"
 
-    # LLM will fall back gracefully to conversation history if context doesn't match well due to the follow up
-    answer = generate_teacher_answer(question, context, history_list, fallback_text=fallback)
+    # Update memory before generating an answer
+    add_to_memory("user", question)
+    
+    answer = generate_teacher_answer(question, context, fallback_text=fallback)
+    
+    # Store LLM response in memory
+    add_to_memory("assistant", answer)
 
     return {
         "reply": answer
     }
+
+
+# =============================
+# QUIZ GENERATION ROUTE
+# =============================
+@app.post("/generate_quiz")
+async def generate_quiz(
+    subject: Annotated[str, Form(...)],
+):
+    """Generates MCQs and Short Answers based on the uploaded notes."""
+    
+    if subject not in ["subject1", "subject2", "subject3"]:
+        return {"error": "Invalid subject provided."}
+
+    chunks = load_subject_index(subject)
+
+    if not chunks:
+        # Return empty generic structure if no notes exist
+        return {
+            "mcqs": [],
+            "short": []
+        }
+        
+    # We take up to the first 15 chunks (roughly 15,000 chars) to give the LLM broad context
+    # for generating a diverse quiz.
+    sample_chunks = chunks[:15]
+    context = build_context_from_chunks(sample_chunks)
+
+    print(f"🧠 Generating quiz for {subject} with {len(sample_chunks)} chunks of context")
+
+    system_prompt = """You are an expert educator. Your task is to generate a structured quiz based strictly on the provided CONTEXT.
+
+    Format your output ONLY as a valid JSON object with the following structure:
+    {
+      "mcqs": [
+        {
+          "q": "Question text here?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "answer": 0,  // Index of the correct option (0-3)
+          "explanation": "Why this is the correct answer.",
+          "citation": "Source file name or general topic from context"
+        }
+      ],
+      "short": [
+        {
+          "q": "Short answer question text?",
+          "answer": "Detailed model answer.",
+          "citation": "Source file name or general topic from context"
+        }
+      ]
+    }
+
+    REQUIREMENTS:
+    1. Generate EXACTLY 5 MCQs and 3 Short Answer questions.
+    2. Base all questions ONLY on the provided CONTEXT.
+    3. Output nothing but the valid JSON object. No markdown formatting, no intro text.
+    """
+
+    user_prompt = f"CONTEXT:\n{context}\n\nGenerate the JSON quiz now."
+
+    try:
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3, # lower temperature for more deterministic JSON
+            # Setting response_format to ensure valid JSON output from Groq
+            response_format={"type": "json_object"},
+            max_tokens=2000
+        )
+        
+        quiz_json_str = response.choices[0].message.content.strip()
+        import json
+        quiz_data = json.loads(quiz_json_str)
+        print("✅ Quiz generated successfully")
+        return quiz_data
+        
+    except Exception as e:
+        print(f"⚠️ Quiz generation failed: {e}")
+        return {"error": "Failed to generate quiz. Please try again."}

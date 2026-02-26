@@ -6,10 +6,10 @@ export default function TeacherPage() {
             <div className="flex items-center justify-between mb-8 shrink-0">
                 <div>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-                        AI Voice Teacher
+                        
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Interactive voice session grounded in your vector database. Ask questions or request simpler explanations.
+                      
                     </p>
                 </div>
             </div>

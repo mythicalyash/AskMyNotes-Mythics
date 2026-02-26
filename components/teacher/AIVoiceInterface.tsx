@@ -1,7 +1,20 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Mic, MicOff, VolumeX, Volume2, Loader2, Send } from "lucide-react"
+import { Mic, MicOff, VolumeX, Volume2, Loader2, Send, Calculator, Globe, Code } from "lucide-react"
+
+type Subject = {
+    id: string
+    name: string
+    color: string
+    icon: React.ElementType
+}
+
+const SUBJECTS: Subject[] = [
+    { id: "subject1", name: "Mathematics", color: "#84B179", icon: Calculator },
+    { id: "subject2", name: "Web development", color: "#A2CB8B", icon: Globe },
+    { id: "subject3", name: "Java", color: "#C7EABB", icon: Code },
+]
 
 // Types
 type Message = {
@@ -10,6 +23,7 @@ type Message = {
 }
 
 export default function AIVoiceInterface() {
+    const [selectedSubject, setSelectedSubject] = useState<Subject>(SUBJECTS[0])
     const [isListening, setIsListening] = useState(false)
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [isProcessing, setIsProcessing] = useState(false)
@@ -139,12 +153,12 @@ export default function AIVoiceInterface() {
         setIsProcessing(true)
 
         try {
-            // Send to our backend proxy route which connects to the Python DB
             const res = await fetch("/api/teacher", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     message: trimmed,
+                    subject: selectedSubject.id,
                     history: newMessages.map(m => ({ role: m.role, content: m.content }))
                 })
             })
@@ -167,6 +181,34 @@ export default function AIVoiceInterface() {
 
     return (
         <div className="flex flex-col h-full gap-6">
+
+            {/* Subject Selector */}
+            <div className="glass rounded-2xl p-4 shrink-0">
+                <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Learning Subject</p>
+                <div className="flex gap-2 flex-wrap">
+                    {SUBJECTS.map((subject) => {
+                        const Icon = subject.icon
+                        const isActive = selectedSubject.id === subject.id
+                        return (
+                            <button
+                                key={subject.id}
+                                onClick={() => {
+                                    setSelectedSubject(subject)
+                                    setMessages([{ role: "ai", content: `Switched to ${subject.name}! Ask me anything about your uploaded ${subject.name} notes.` }])
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
+                                    ? "text-[#0a0a0a] shadow-lg scale-105"
+                                    : "glass text-muted-foreground hover:text-foreground hover:scale-105"
+                                    }`}
+                                style={isActive ? { backgroundColor: subject.color, boxShadow: `0 4px 20px ${subject.color}50` } : {}}
+                            >
+                                <Icon className="w-4 h-4" />
+                                {subject.name}
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
 
             {/* Visualizer & Controls */}
             <div className="glass-strong rounded-3xl p-8 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden shrink-0">

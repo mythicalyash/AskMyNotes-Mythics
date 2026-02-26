@@ -96,7 +96,7 @@ const chatResponseBank: Record<
     evidence: Evidence[]
   }[]
 > = {
-  Biology: [
+  Mathematics: [
     {
       keywords: ["photosynthesis", "light", "chlorophyll", "plant"],
       content:
@@ -162,7 +162,7 @@ const chatResponseBank: Record<
       ],
     },
   ],
-  "Web Design": [
+  "Web development": [
     {
       keywords: ["flexbox", "flex", "layout", "css", "box model"],
       content:
@@ -206,7 +206,7 @@ const chatResponseBank: Record<
       ],
     },
   ],
-  Philosophy: [
+  Java: [
     {
       keywords: ["ethics", "moral", "utilitarianism", "kant", "deontology"],
       content:
@@ -255,7 +255,7 @@ const chatResponseBank: Record<
 
 /* ─── Quiz Question Bank ─── */
 const quizQuestionBank: Record<string, SubjectBank> = {
-  Biology: {
+  Mathematics: {
     mcqs: [
       {
         q: "Which organelle is known as the powerhouse of the cell?",
@@ -319,7 +319,7 @@ const quizQuestionBank: Record<string, SubjectBank> = {
       },
     ],
   },
-  "Web Design": {
+  "Web development": {
     mcqs: [
       {
         q: "Which CSS property controls the space between the content and the border?",
@@ -387,7 +387,7 @@ const quizQuestionBank: Record<string, SubjectBank> = {
       },
     ],
   },
-  Philosophy: {
+  Java: {
     mcqs: [
       {
         q: "Who authored 'Critique of Pure Reason'?",
@@ -538,10 +538,42 @@ function getBank(subjectName: string): SubjectBank {
 // Helper to map visual name to backend ID
 function getBackendSubjectId(name: string) {
   switch (name) {
-    case "Biology": return "subject1";
-    case "Web Design": return "subject2";
-    case "Philosophy": return "subject3";
+    case "Mathematics": return "subject1";
+    case "Web development": return "subject2";
+    case "Java": return "subject3";
     default: return "subject1";
+  }
+}
+
+// Helper to fetch dynamically generated quiz from backend
+async function generateQuizFromBackend(subjectName: string): Promise<SubjectBank> {
+  try {
+    const formData = new FormData()
+    formData.append("subject", getBackendSubjectId(subjectName))
+
+    const response = await fetch("http://127.0.0.1:8000/generate_quiz", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    if (data.error) {
+      console.error("Backend Error:", data.error)
+      return getBank(subjectName); // fallback to mock local bank
+    }
+
+    if (data.mcqs && data.short && (data.mcqs.length > 0 || data.short.length > 0)) {
+      return data as SubjectBank;
+    }
+
+    return getBank(subjectName); // fallback if empty
+  } catch (error) {
+    console.error("Quiz generation error:", error)
+    return getBank(subjectName); // fallback on network failure
   }
 }
 
@@ -728,12 +760,15 @@ export default function StudyPage() {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({})
   const [revealed, setRevealed] = useState<Record<number, boolean>>({})
 
+  // Dynamic Quiz State
+  const [activeBank, setActiveBank] = useState<SubjectBank>(fallbackBank)
+  const [isGenerating, setIsGenerating] = useState(false)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const selectedSubject = selectedSubjectId ? subjects.find((s) => s.id === selectedSubjectId)! : null
   const SubjectIcon = selectedSubject ? iconMap[selectedSubject.icon] || BookOpen : BookOpen
-  const activeBank = selectedSubject ? getBank(selectedSubject.name) : fallbackBank
 
   // Auto-scroll for chat
   useEffect(() => {
@@ -750,11 +785,22 @@ export default function StudyPage() {
     setTimeout(() => inputRef.current?.focus(), 100)
   }
 
-  const startQuizMode = (id: number) => {
+  const startQuizMode = async (id: number) => {
+    // Show loading state right away while staying on 'pick' view or a new loading view
+    const subject = subjects.find(s => s.id === id);
+    if (!subject) return;
+
+    setIsGenerating(true)
+
+    // Fetch dynamically from backend
+    const dynamicBank = await generateQuizFromBackend(subject.name)
+    setActiveBank(dynamicBank)
+
     setSelectedSubjectId(id)
     setSelectedAnswers({})
     setRevealed({})
     setView("mode-picker")
+    setIsGenerating(false)
   }
 
   const handleBack = () => {
@@ -844,13 +890,18 @@ export default function StudyPage() {
                   </button>
                   <button
                     onClick={() => startQuizMode(s.id)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all hover:scale-[1.02]"
+                    disabled={isGenerating}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:scale-100"
                     style={{
                       backgroundColor: `${s.color}25`,
                       color: s.color,
                     }}
                   >
-                    Start Studying
+                    {isGenerating && selectedSubjectId === s.id ? (
+                      <span className="animate-pulse">Generating...</span>
+                    ) : (
+                      "Start Studying"
+                    )}
                   </button>
                 </div>
               </div>
@@ -990,8 +1041,8 @@ export default function StudyPage() {
 
                 <div className="flex flex-wrap justify-center gap-2 pt-2">
                   {[
-                    selectedSubject.name === "Biology" ? "What is photosynthesis?" : selectedSubject.name === "Web Design" ? "How does Flexbox work?" : "What is Kantian ethics?",
-                    selectedSubject.name === "Biology" ? "Explain DNA replication" : selectedSubject.name === "Web Design" ? "What are media queries?" : "Explain Plato's Theory of Forms",
+                    selectedSubject.name === "Mathematics" ? "What is a derivative?" : selectedSubject.name === "Web development" ? "How does Flexbox work?" : "What is object-oriented programming?",
+                    selectedSubject.name === "Mathematics" ? "Explain integration" : selectedSubject.name === "Web development" ? "What are media queries?" : "Explain inheritance in Java",
                   ].map((q) => (
                     <button
                       key={q}

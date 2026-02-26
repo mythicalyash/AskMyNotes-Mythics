@@ -3,15 +3,14 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { message, history } = body;
+        const { message, history, subject } = body;
 
-        // Use subject1 as the default subject for now unless provided visually 
-        const subject = "subject1";
+        // Use selected subject from the frontend; fallback to subject1
+        const backendSubject = subject && ["subject1", "subject2", "subject3"].includes(subject) ? subject : "subject1";
 
         const formData = new FormData();
-        formData.append("subject", subject);
+        formData.append("subject", backendSubject);
         formData.append("question", message);
-        formData.append("history", JSON.stringify(history));
 
         const response = await fetch("http://127.0.0.1:8000/teacher_ask", {
             method: "POST",

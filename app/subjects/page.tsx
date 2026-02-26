@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   Search,
   Upload,
@@ -44,24 +44,15 @@ const subjectStats: Record<number, { notes: number; pages: number }> = {
 export default function SubjectsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null)
-  const [uploadedFiles, setUploadedFiles] = useState<Record<number, UploadedFile[]>>({
-    1: [
-      { name: "chapter-4-biology.pdf", size: "2.4 MB", type: "PDF" },
-      { name: "cell-diagram-notes.txt", size: "128 KB", type: "TXT" },
-    ],
-    2: [
-      { name: "ui-principles.pdf", size: "3.1 MB", type: "PDF" },
-    ],
-    3: [],
-  })
+  const [uploadedFiles, setUploadedFiles] = useState<Record<number, UploadedFile[]>>({})
   const [isUploading, setIsUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const getBackendSubjectId = (name: string) => {
     switch (name) {
-      case "Biology": return "subject1";
-      case "Web Design": return "subject2";
-      case "Philosophy": return "subject3";
+      case "Mathematics": return "subject1";
+      case "Web development": return "subject2";
+      case "Java": return "subject3";
       default: return "subject1";
     }
   }
@@ -72,6 +63,28 @@ export default function SubjectsPage() {
     .slice(0, 3)
 
   const activeSubjectId = selectedSubject ?? displayedSubjects[0]?.id
+
+  useEffect(() => {
+    const fetchAllFiles = async () => {
+      const newFiles: Record<number, UploadedFile[]> = {}
+      for (const subject of subjects) {
+        try {
+          const backendId = getBackendSubjectId(subject.name)
+          const res = await fetch(`http://127.0.0.1:8000/files/${backendId}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.files) {
+              newFiles[subject.id] = data.files
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch files for", subject.name)
+        }
+      }
+      setUploadedFiles(newFiles)
+    }
+    fetchAllFiles()
+  }, [])
 
   const uploadToBackend = async (subjectId: number, subjectName: string, files: File[]) => {
     setIsUploading(true)
@@ -125,11 +138,26 @@ export default function SubjectsPage() {
     await uploadToBackend(activeSubjectId, activeSubject.name, files)
   }
 
-  const removeFile = (subjectId: number, index: number) => {
-    setUploadedFiles((prev) => ({
-      ...prev,
-      [subjectId]: (prev[subjectId] || []).filter((_, i) => i !== index),
-    }))
+  const removeFile = async (subjectId: number, index: number, fileName: string) => {
+    try {
+      const subject = subjects.find(s => s.id === subjectId)
+      if (!subject) return
+
+      const backendId = getBackendSubjectId(subject.name)
+      const res = await fetch(`http://127.0.0.1:8000/files/${backendId}/${fileName}`, {
+        method: "DELETE"
+      })
+
+      if (!res.ok) throw new Error("Failed to delete from backend")
+
+      setUploadedFiles((prev) => ({
+        ...prev,
+        [subjectId]: (prev[subjectId] || []).filter((_, i) => i !== index),
+      }))
+    } catch (e) {
+      console.error(e)
+      alert("Failed to delete file")
+    }
   }
 
   return (
@@ -306,7 +334,7 @@ export default function SubjectsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              removeFile(subject.id, index)
+                              removeFile(subject.id, index, file.name)
                             }}
                             className="shrink-0 text-muted-foreground transition-colors hover:text-red-400"
                             aria-label={`Remove ${file.name}`}

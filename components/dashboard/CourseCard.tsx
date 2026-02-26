@@ -1,11 +1,15 @@
 "use client"
 
-import { Play, Palette, Compass, Image } from "lucide-react"
+import { Play, Palette, Compass, Image, Calculator, Globe, Code } from "lucide-react"
+import Link from "next/link"
 
 const iconMap: Record<string, React.ElementType> = {
   palette: Palette,
   compass: Compass,
   image: Image,
+  calculator: Calculator,
+  globe: Globe,
+  code: Code,
 }
 
 interface CourseCardProps {
@@ -26,7 +30,10 @@ export default function CourseCard({
   const IconComponent = iconMap[icon] || Palette
 
   return (
-    <div className="glass group flex min-w-[200px] flex-col gap-3 rounded-2xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-green-1/10">
+    <Link
+      href="/study"
+      className="glass group flex min-w-[200px] flex-col gap-3 rounded-2xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-green-1/10"
+    >
       <div
         className={`flex h-28 items-center justify-center rounded-xl bg-gradient-to-br ${color}`}
       >
@@ -47,9 +54,8 @@ export default function CourseCard({
               key={i}
               className="h-6 w-6 rounded-full border-2 border-[rgba(15,15,30,0.8)]"
               style={{
-                background: `linear-gradient(135deg, ${
-                  ["#84B179", "#A2CB8B", "#C7EABB"][i % 3]
-                }, ${["#A2CB8B", "#C7EABB", "#E8F5BD"][i % 3]})`,
+                background: `linear-gradient(135deg, ${["#84B179", "#A2CB8B", "#C7EABB"][i % 3]
+                  }, ${["#A2CB8B", "#C7EABB", "#E8F5BD"][i % 3]})`,
               }}
             />
           ))}
@@ -61,6 +67,6 @@ export default function CourseCard({
           <Play className="h-3.5 w-3.5 fill-current" />
         </button>
       </div>
-    </div>
+    </Link>
   )
 }

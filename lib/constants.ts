@@ -1,30 +1,30 @@
 export const courses = [
   {
     id: 1,
-    title: "UI/UX Design",
+    title: "Mathematics",
     classes: 3,
     color: "from-[#6366f1] to-[#818cf8]",
     bgColor: "bg-[#6366f1]/20",
     students: 3,
-    icon: "palette",
+    icon: "calculator",
   },
   {
     id: 2,
-    title: "Derivation",
+    title: "Web development",
     classes: 3,
     color: "from-[#06b6d4] to-[#67e8f9]",
     bgColor: "bg-[#06b6d4]/20",
     students: 3,
-    icon: "compass",
+    icon: "globe",
   },
   {
     id: 3,
-    title: "Photoshop Course",
+    title: "Java",
     classes: 3,
     color: "from-[#38bdf8] to-[#7dd3fc]",
     bgColor: "bg-[#38bdf8]/20",
     students: 3,
-    icon: "image",
+    icon: "code",
   },
 ]
 
@@ -56,13 +56,9 @@ export const calendarEvents = [
 ]
 
 export const chartData = [
-  { subject: "Biology", score: 76, fill: "#6366f1" },
-  { subject: "Geography", score: 58, fill: "#818cf8" },
-  { subject: "History", score: 85, fill: "#a78bfa" },
-  { subject: "Math", score: 62, fill: "#c4b5fd" },
-  { subject: "Literature", score: 71, fill: "#8b5cf6" },
-  { subject: "Art", score: 90, fill: "#7c3aed" },
-  { subject: "Comp. Science", score: 67, fill: "#6d28d9" },
+  { subject: "Mathematics", mcq: 85, short: 65 },
+  { subject: "Web dev.", mcq: 90, short: 80 },
+  { subject: "Java", mcq: 75, short: 55 },
 ]
 
 export const userProfile = {
@@ -75,30 +71,30 @@ export const userProfile = {
 export const subjects = [
   {
     id: 1,
-    name: "Biology",
+    name: "Mathematics",
     files: 4,
     progress: 72,
     color: "#84B179",
-    icon: "leaf",
-    description: "Cell biology, genetics, and evolution",
+    icon: "calculator",
+    description: "Calculus, algebra, and statistics",
   },
   {
     id: 2,
-    name: "Web Design",
+    name: "Web development",
     files: 6,
     progress: 88,
     color: "#A2CB8B",
     icon: "globe",
-    description: "HTML, CSS, UI/UX principles",
+    description: "HTML, CSS, JavaScript frameworks",
   },
   {
     id: 3,
-    name: "Philosophy",
+    name: "Java",
     files: 3,
     progress: 45,
     color: "#C7EABB",
-    icon: "book-open",
-    description: "Ethics, logic, and metaphysics",
+    icon: "code",
+    description: "Object-oriented programming in Java",
   },
   {
     id: 4,
