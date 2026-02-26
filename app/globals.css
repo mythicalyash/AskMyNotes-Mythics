@@ -93,6 +93,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -100,14 +101,14 @@
 
 /* Glassmorphism utility classes */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
+  background: #565449;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.08);
+  background: #11120d;
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -133,13 +134,16 @@
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }

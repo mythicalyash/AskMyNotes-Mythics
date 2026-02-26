@@ -44,6 +44,11 @@ export default function AIVoiceInterface() {
 
                 recognitionRef.current.onerror = (event: any) => {
                     console.error("Speech recognition error", event.error)
+                    if (event.error === 'network') {
+                        setMessages(prev => [...prev, { role: "ai", content: "I couldn't connect to the speech recognition service. This often happens if your browser (like Brave or Arc) blocks the Google Speech API or if you are offline. Please try typing your question instead!" }])
+                    } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                        setMessages(prev => [...prev, { role: "ai", content: "Microphone access was denied. Please allow microphone permissions to use voice chat." }])
+                    }
                     setIsListening(false)
                 }
 

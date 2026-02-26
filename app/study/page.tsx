@@ -45,7 +45,7 @@ type Confidence = "High" | "Medium" | "Low"
 
 interface Evidence {
   snippet: string
-  source: string
+  citation: string
 }
 
 interface Citation {
@@ -535,33 +535,61 @@ function getBank(subjectName: string): SubjectBank {
   return quizQuestionBank[subjectName] ?? fallbackBank
 }
 
-function getAIResponse(
+// Helper to map visual name to backend ID
+function getBackendSubjectId(name: string) {
+  switch (name) {
+    case "Biology": return "subject1";
+    case "Web Design": return "subject2";
+    case "Philosophy": return "subject3";
+    default: return "subject1";
+  }
+}
+
+// Helper to fetch actual AI response from the backend
+async function fetchBackendAIResponse(
   subjectName: string,
   question: string
-): Omit<AIMessage, "id" | "role"> {
-  const bank = chatResponseBank[subjectName] ?? []
-  const q = question.toLowerCase()
-  const match = bank.find((r) => r.keywords.some((kw) => q.includes(kw)))
+): Promise<Omit<AIMessage, "id" | "role">> {
+  try {
+    const formData = new FormData()
+    formData.append("subject", getBackendSubjectId(subjectName))
+    formData.append("question", question)
 
-  if (match) {
-    return {
-      content: match.content,
-      confidence: match.confidence,
-      citations: match.citations,
-      evidence: match.evidence,
+    const response = await fetch("http://127.0.0.1:8000/ask_v2", {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
     }
-  }
 
-  return {
-    content: `Based on your **${subjectName}** notes, I found some relevant information, but the specific topic you asked about may not be covered in detail in the uploaded materials. Try rephrasing or ask about a core concept from this subject.`,
-    confidence: "Low",
-    citations: [{ file: `${subjectName}_Notes.pdf`, section: "General reference" }],
-    evidence: [
-      {
-        snippet: `Your uploaded ${subjectName} materials cover the main topics of this subject. This specific query may require more targeted note uploads.`,
-        source: `${subjectName}_Notes.pdf · General`,
-      },
-    ],
+    const data = await response.json()
+
+    // Map backend response format to our UI components
+    return {
+      content: data.answer || "No response received.",
+      confidence: (data.confidence as Confidence) || "Low",
+      citations: data.evidence.map((ev: any) => {
+        const parts = ev.citation.split("|")
+        return {
+          file: parts[0]?.trim() || "Unknown Source",
+          section: parts[1]?.trim() || "Unknown Page",
+        }
+      }),
+      evidence: data.evidence.map((ev: any) => ({
+        snippet: ev.snippet,
+        citation: ev.citation,
+      })),
+    }
+  } catch (error) {
+    console.error("Backend ask_v2 error:", error)
+    return {
+      content: "Failed to connect to the backend. Is the FastAPI server running?",
+      confidence: "Low",
+      citations: [],
+      evidence: [],
+    }
   }
 }
 
@@ -672,7 +700,7 @@ function AIBubble({
                   className="mt-1 text-[10px] font-medium"
                   style={{ color: subjectColor }}
                 >
-                  — {ev.source}
+                  — {ev.citation}
                 </p>
               </div>
             ))}
@@ -835,7 +863,7 @@ export default function StudyPage() {
 
   /* ───────────────── 2. CHAT VIEW ───────────────── */
   if (view === "chat" && selectedSubject) {
-    const sendMessage = () => {
+    const sendMessage = async () => {
       if (!input.trim() || isTyping) return
       const q = input.trim()
       setInput("")
@@ -848,17 +876,15 @@ export default function StudyPage() {
       setMessages((prev) => [...prev, userMsg])
       setIsTyping(true)
 
-      // Simulate async response
-      setTimeout(() => {
-        const resp = getAIResponse(selectedSubject.name, q)
-        const aiMsg: AIMessage = {
-          id: Date.now() + 1,
-          role: "assistant",
-          ...resp,
-        }
-        setMessages((prev) => [...prev, aiMsg])
-        setIsTyping(false)
-      }, 1000)
+      // Fetch from real backend
+      const resp = await fetchBackendAIResponse(selectedSubject.name, q)
+      const aiMsg: AIMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        ...resp,
+      }
+      setMessages((prev) => [...prev, aiMsg])
+      setIsTyping(false)
     }
 
     return (

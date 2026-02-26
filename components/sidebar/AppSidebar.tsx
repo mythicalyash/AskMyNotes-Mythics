@@ -16,8 +16,6 @@ import {
 
 const navItems = [
   { icon: Users, href: "/", label: "Dashboard", exact: true },
-  { icon: Home, href: "/", label: "Home", exact: true },
-  { icon: BarChart3, href: "/", label: "Analytics", exact: true },
   { icon: BookOpen, href: "/subjects", label: "Subjects", exact: false },
   { icon: FileText, href: "/study", label: "Study & Q&A", exact: false },
   { icon: Bot, href: "/teacher", label: "AI Teacher", exact: false },

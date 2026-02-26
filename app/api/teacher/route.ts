@@ -5,34 +5,26 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { message, history } = body;
 
-        // In a real scenario, this connects to the Python vector DB setup:
-        // const response = await fetch("http://localhost:8000/api/chat", {
-        //   method: "POST",
-        //   headers: { "Content-Type": "application/json" },
-        //   body: JSON.stringify({ message, history })
-        // });
-        // const data = await response.json();
+        // Use subject1 as the default subject for now unless provided visually 
+        const subject = "subject1";
 
-        // For now, let's simulate the AI Teacher taking context into account based on vector knowledge:
-        let reply = "";
-        const lowerMsg = message.toLowerCase();
+        const formData = new FormData();
+        formData.append("subject", subject);
+        formData.append("question", message);
+        formData.append("history", JSON.stringify(history));
 
-        if (lowerMsg.includes("simplify") || lowerMsg.includes("simpler")) {
-            reply = "Sure! Let me break that down. Think of it like building blocks. We start with the base, and add pieces one by one.";
-        } else if (lowerMsg.includes("example")) {
-            reply = "A great example of this would be the water cycle. Evaporation, condensation, and precipitation all working together in a loop.";
-        } else if (lowerMsg.includes("compare")) {
-            reply = "Compared to the previous concept, this one relies more on active energy rather than passive states.";
-        } else if (lowerMsg.includes("hello") || lowerMsg.includes("hi")) {
-            reply = "Hello! I am your AI Teacher. Ask me a question and I'll search our knowledge base to help you out.";
-        } else {
-            reply = `According to the vector database, here is the answer regarding your question about "${message}". The key concept is that it acts as a central hub for interactions. Is there a specific part you'd like me to expand on?`;
+        const response = await fetch("http://127.0.0.1:8000/teacher_ask", {
+            method: "POST",
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Backend returned status: ${response.status}`);
         }
 
-        // Artificial delay to simulate DB lookups and LLM generation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const data = await response.json();
 
-        return NextResponse.json({ reply });
+        return NextResponse.json({ reply: data.reply });
     } catch (error) {
         console.error("AI Teacher Route Error:", error);
         return NextResponse.json(
