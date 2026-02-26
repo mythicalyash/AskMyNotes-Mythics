@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "date": "24 November",
+    "time": "09:00",
+    "subject": "Philosophy",
+    "topic": "Geological evolution",
+    "color": "#84B179"
+  },
+  {
+    "id": 2,
+    "date": "25 November",
+    "time": "12:00",
+    "subject": "Web design",
+    "topic": "Color composition",
+    "color": "#A2CB8B"
+  },
+  {
+    "id": 3,
+    "date": "26 November",
+    "time": "10:00",
+    "subject": "Sociology",
+    "topic": "Ethics of science",
+    "color": "#C7EABB"
+  },
+  {
+    "date": "27 November",
+    "time": "",
+    "subject": "Creative Writing",
+    "topic": "Drafting",
+    "color": "#f43f5e",
+    "id": "1772111262499"
+  },
+  {
+    "date": "06 February",
+    "time": "00:32",
+    "subject": "hi",
+    "topic": "2e2",
+    "color": "#6366f1",
+    "id": "1772111356339"
+  }
+]
