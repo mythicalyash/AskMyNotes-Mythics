@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
         const data = await response.json();
 
-        return NextResponse.json({ reply: data.reply });
+        return NextResponse.json({ reply: data.reply, evidence: data.evidence ?? [] });
     } catch (error) {
         console.error("AI Teacher Route Error:", error);
         return NextResponse.json(

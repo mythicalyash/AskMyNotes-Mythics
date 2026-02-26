@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Mic, MicOff, VolumeX, Volume2, Loader2, Send, Calculator, Globe, Code } from "lucide-react"
+import { Mic, MicOff, VolumeX, Volume2, Loader2, Send, Calculator, Globe, Code, FileText, Quote, ChevronDown, ChevronUp } from "lucide-react"
 
 type Subject = {
     id: string
@@ -17,9 +17,80 @@ const SUBJECTS: Subject[] = [
 ]
 
 // Types
+type Evidence = {
+    citation: string
+    snippet: string
+}
+
 type Message = {
     role: "user" | "ai"
     content: string
+    evidence?: Evidence[]
+}
+
+/* ─── Source Chips + Evidence toggle rendered under each AI bubble ─── */
+function SourcesPanel({ evidence, color }: { evidence: Evidence[]; color: string }) {
+    const [open, setOpen] = useState(false)
+
+    if (!evidence || evidence.length === 0) return null
+
+    // Parse "filename | page X" style citations into two parts
+    const parsedCitations = evidence.map((ev) => {
+        const parts = ev.citation.split("|")
+        return {
+            file: parts[0]?.trim() || "Unknown Source",
+            page: parts[1]?.trim() || "",
+            snippet: ev.snippet,
+        }
+    })
+
+    return (
+        <div className="flex flex-col gap-1.5 mt-1">
+            {/* Citation pills */}
+            <div className="flex flex-wrap gap-1.5">
+                {parsedCitations.map((c, i) => (
+                    <span
+                        key={i}
+                        className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px]"
+                        style={{ backgroundColor: `${color}18`, color }}
+                    >
+                        <FileText className="h-2.5 w-2.5 shrink-0" />
+                        {c.file}{c.page ? ` · ${c.page}` : ""}
+                    </span>
+                ))}
+            </div>
+
+            {/* Evidence toggle */}
+            <button
+                onClick={() => setOpen((v) => !v)}
+                className="flex w-fit items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-white/6 hover:text-foreground"
+            >
+                <Quote className="h-3 w-3" />
+                {open ? "Hide" : "Show"} supporting evidence
+                {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+
+            {/* Snippets */}
+            {open && (
+                <div className="flex flex-col gap-2">
+                    {parsedCitations.map((c, i) => (
+                        <div
+                            key={i}
+                            className="rounded-xl border-l-2 py-2 pl-3 pr-4"
+                            style={{ borderColor: color, backgroundColor: `${color}08` }}
+                        >
+                            <p className="text-[11px] italic leading-relaxed text-muted-foreground">
+                                "{c.snippet}"
+                            </p>
+                            <p className="mt-1 text-[10px] font-medium" style={{ color }}>
+                                — {c.file}{c.page ? ` · ${c.page}` : ""}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
 }
 
 export default function AIVoiceInterface() {
@@ -166,7 +237,11 @@ export default function AIVoiceInterface() {
             const data = await res.json()
 
             if (data.reply) {
-                setMessages(prev => [...prev, { role: "ai", content: data.reply }])
+                setMessages(prev => [...prev, {
+                    role: "ai",
+                    content: data.reply,
+                    evidence: data.evidence ?? [],
+                }])
                 speakText(data.reply)
             } else {
                 throw new Error("Invalid response")
@@ -270,9 +345,20 @@ export default function AIVoiceInterface() {
                 <div className="flex-1 overflow-y-auto pr-4 space-y-6 custom-scrollbar mb-[60px]">
                     {messages.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-green-1/20 text-green-1 shadow-green-1/5' : 'bg-black/40 border border-white/5 text-foreground'}`}>
-                                <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
-                            </div>
+                            {msg.role === 'user' ? (
+                                <div className="max-w-[80%] rounded-2xl p-4 bg-green-1/20 text-green-1 shadow-green-1/5">
+                                    <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                                </div>
+                            ) : (
+                                <div className="max-w-[80%] flex flex-col gap-2">
+                                    <div className="rounded-2xl p-4 bg-black/40 border border-white/5 text-foreground">
+                                        <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                                    </div>
+                                    {msg.evidence && msg.evidence.length > 0 && (
+                                        <SourcesPanel evidence={msg.evidence} color={selectedSubject.color} />
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                     <div ref={messagesEndRef} />

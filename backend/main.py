@@ -792,8 +792,17 @@ async def teacher_ask(
     # Store LLM response in memory
     add_to_memory("assistant", answer)
 
+    evidence = [
+        {
+            "citation": chunk["citation"],
+            "snippet": chunk["text"][:200]
+        }
+        for chunk in scored_chunks
+    ] if scored_chunks else []
+
     return {
-        "reply": answer
+        "reply": answer,
+        "evidence": evidence
     }
 
 
